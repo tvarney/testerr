@@ -48,64 +48,75 @@ func Is(expected error) ExpectedError {
 //
 // If the underlying Checker is nil, this function will use a NilChecker to
 // provide the Check function.
-func (r ExpectedError) Check(actual error) error {
-	if r.Checker == nil {
+func (e ExpectedError) Check(actual error) error {
+	if e.Checker == nil {
 		return NilChecker{}.Check(actual)
 	}
 	//nolint:wrapcheck // We intentionally don't wrap this (it makes no sense to)
-	return r.Checker.Check(actual)
+	return e.Checker.Check(actual)
 }
 
-// Assert fails the test if the given error isn't as expected.
+// Assert fails the test if the given error isn't what was expected.
 //
 // This function will fail the current test if the given error doesn't match
 // the expected error. The test will be allowed to continue past the failure.
 //
-// If extra arguments are provided they are treated as a format string and
-// arguments to pass to `t.Logf`.
-func (r ExpectedError) Assert(t TestObject, actual error, msgAndArgs ...interface{}) {
-	t.Helper()
-	if err := r.Checker.Check(actual); err != nil {
-		t.Log(err.Error())
-		LogMsgAndArgs(t, msgAndArgs)
-		t.Fail()
+// If extra parameters are provided they are logged via `t.Log()`. If format
+// string evaluation is expected, use ExpectedError.Assertf instead of this.
+func (e ExpectedError) Assert(tObj TestObject, actual error, logExtra ...interface{}) {
+	tObj.Helper()
+	if err := e.Checker.Check(actual); err != nil {
+		tObj.Log(err.Error())
+		if len(logExtra) > 0 {
+			tObj.Log(logExtra...)
+		}
+		tObj.Fail()
 	}
 }
 
-// Require fails and stops the test if the given error isn't as expected.
+// Assertf fails the test if the given error isn't what was expected.
+//
+// This function will fail the current test if the given error doesn't match
+// the expected error. The test will be allowed to continue past the failure.
+func (e ExpectedError) Assertf(tObj TestObject, actual error, fmtstr string, args ...interface{}) {
+	tObj.Helper()
+	if err := e.Checker.Check(actual); err != nil {
+		tObj.Log(err.Error())
+		tObj.Logf(fmtstr, args...)
+		tObj.Fail()
+	}
+}
+
+// Require fails and stops the test if the given error isn't what was expected.
 //
 // This function will fail the current test if the given error doesn't match
 // the expected error and stops test execution at that point. This will
 // prevent any further assertions in the test from being evaluated.
 //
-// If extra arguments are provided they are treated as a format string and
-// arguments to pass to `t.Logf`.
-func (r ExpectedError) Require(t TestObject, actual error, msgAndArgs ...interface{}) {
-	t.Helper()
-	if err := r.Checker.Check(actual); err != nil {
-		t.Log(err.Error())
-		LogMsgAndArgs(t, msgAndArgs)
-		t.FailNow()
+// If extra parameters are provided they are logged via `t.Log()`. If format
+// string evaluation is expected, use ExpectedError.Requiref instead of this.
+func (e ExpectedError) Require(tObj TestObject, actual error, logExtra ...interface{}) {
+	tObj.Helper()
+	if err := e.Checker.Check(actual); err != nil {
+		tObj.Log(err.Error())
+		if len(logExtra) > 0 {
+			tObj.Log(logExtra...)
+		}
+		tObj.FailNow()
 	}
 }
 
-// LogMsgAndArgs takes an array of values and logs it to the given testing
-// instance.
-func LogMsgAndArgs(tObj TestObject, msgAndArgs []interface{}) {
+// Requiref fails and stops the test if the given error isn't what was
+// expected.
+//
+// This function will fail the current test if the given error doesn't match
+// the expected error and stops test execution at that point. This will
+// prevent any further assertions in the test from being evaluated.
+func (e ExpectedError) Requiref(tObj TestObject, actual error, fmtstr string, args ...interface{}) {
 	tObj.Helper()
-	switch len(msgAndArgs) {
-	case 0:
-		// Do nothing, no message/args
-	case 1:
-		tObj.Log(msgAndArgs...)
-	default:
-		fmtstr, ok := msgAndArgs[0].(string)
-		if ok {
-			// If first element is a string, assume it's a Printf like format
-			// string
-			tObj.Logf(fmtstr, msgAndArgs[1:]...)
-		} else {
-			tObj.Log(msgAndArgs...)
-		}
+	if err := e.Checker.Check(actual); err != nil {
+		tObj.Log(err.Error())
+		tObj.Logf(fmtstr, args...)
+		tObj.FailNow()
 	}
 }
